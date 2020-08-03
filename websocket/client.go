@@ -4,6 +4,7 @@ import (
     "golang.org/x/net/websocket"
     "log"
     "fmt"
+    "encoding/json"
 )
 
 var origin = "http://127.0.0.1:8888/"
@@ -16,19 +17,36 @@ func main() {
     }
     defer ws.Close()
 
+    offer := &struct {
+        Type string `json:"type"`
+        Sdp string `json:"sdp"`
+    }{
+        Type: "offer",
+        Sdp: "sssssssssss",
+    }
+
     info := &struct {
         Type string `json:"type"`
         Name string `json:"name"`
+        Body interface{} `json:"body"`
     }{
         Type: "login",
         Name: "panda",
+        Body: offer,
     }
 
-    if err := websocket.JSON.Send(ws, info); err != nil {
-        log.Println(fmt.Sprintf("send ws msg failed, err is %v", err))
+    body, _ := json.Marshal(info)
+    if n, err := ws.Write(body); err != nil {
+        log.Println(err.Error())
         return
+    } else {
+        log.Println(n)
     }
-    log.Println(fmt.Sprintf("logined as %v", info.Name))
+    //if err := websocket.JSON.Send(ws, info); err != nil {
+    //    log.Println(fmt.Sprintf("send ws msg failed, err is %v", err))
+    //    return
+    //}
+    //log.Println(fmt.Sprintf("logined as %v", info.Name))
 
     res := &struct {
         Type string `json:"type"`

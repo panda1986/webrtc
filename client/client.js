@@ -13,16 +13,16 @@ connection.onmessage = function (msg) {
             onLogin(data.success);
             break;
         case "offer":
-            //
+            onOffer(data.offer, data.name);
             break;
         case "answer":
-            //
+            onAnswer(data.answer);
             break;
         case "candidate":
-            //
+            onCandidate(data.candidate);
             break;
         case "leave":
-            //
+            onLeave();
             break;
         default:
             break;
@@ -108,25 +108,30 @@ function startConnection() {
     } else {
         alert("sorry, your browser doesn't has user media")
     }
+}
 
-    function setupPeerConnection(stream) {
-        var configuration = {
-            //添加自定义iceServers
-            //"iceServers": [{"urls": "stun:127.0.0.1:9876"}]
-        };
-        yourConnection = new webkitRTCPeerConnection(configuration);
-        // 设置流的监听
-        yourConnection.addStream(stream);
-        yourConnection.onaddstream = function (ev) {
-            theirVideo.srcObject = ev.stream
-        };
-        // 处理ice
-        yourConnection.onicecandidate = function (event) {
-            if (event.candidate) {
-                theirConnection.addIceCandidate(new RTCIceCandidate(event.candidate))
-            }
-        };
-    }
+function setupPeerConnection(stream) {
+    var configuration = {
+        //添加自定义iceServers
+        //"iceServers": [{"urls": "stun:127.0.0.1:9876"}]
+    };
+    yourConnection = new webkitRTCPeerConnection(configuration);
+    // 设置流的监听
+    yourConnection.addStream(stream);
+    yourConnection.onaddstream = function (ev) {
+        theirVideo.srcObject = ev.stream
+    };
+    // 处理ice
+    yourConnection.onicecandidate = function (event) {
+        if (event.candidate) {
+            send({
+                type : "candidate",
+                body: {
+                    candidate: event.candidate
+                }
+            })
+        }
+    };
 }
 
 function hasUserMedia() {
@@ -137,4 +142,75 @@ function hasUserMedia() {
 function hasRTCPeerConnection() {
     window.RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
     return !! window.RTCPeerConnection;
+}
+
+/*
+ 发起通话
+ 和远程用户发起通话，首先发送offer给另一个用户来开始整个过程，一旦用户得到这个offer，他将创建一个响应并开始交换ICE候选，直到成功连接服务器。
+*/
+
+callButton.addEventListener("click", function () {
+    var theirUsername = theirUsernameInput.value;
+    if (theirUsername.length > 0) {
+        startPeerConnection(theirUsername)
+    }
+});
+
+function startPeerConnection(user) {
+    connectedUser = user;
+    // 开始创建offer
+    yourConnection.createOffer(function (sdp) {
+        console.log("send offer sdp:", sdp);
+        send({
+            type: "offer",
+            body: {
+                offer: sdp
+            }
+        });
+        yourConnection.setLocalDescription(sdp);
+    }, function (error) {
+        console.log("create offer failed", error);
+        alert("create offer failed")
+    })
+}
+
+function onOffer(sdp, name) {
+    connectedUser = name;
+    yourConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+    yourConnection.createAnswer(function (sdp2) {
+        yourConnection.setLocalDescription(sdp2);
+        send({
+            type: "answer",
+            body: {
+                answer:  sdp2
+            }
+        })
+    }, function (error) {
+        console.log("create answer failed");
+        alert("create answer failed")
+    })
+}
+
+function onAnswer(sdp) {
+    yourConnection.setRemoteDescription(new RTCSessionDescription(sdp))
+}
+
+function onCandidate(candidate) {
+    yourConnection.addIceCandidate(new RTCIceCandidate(candidate))
+}
+
+hangButton.addEventListener("click", function () {
+    send({
+        type: "leave"
+    });
+    onLeave()
+});
+
+function onLeave() {
+    connectedUser = null;
+    theirVideo.srcObject = null;
+    yourConnection.close();
+    yourConnection.onicecandidate = null;
+    yourConnection.onaddstream = null;
+    setupPeerConnection(stream);
 }
