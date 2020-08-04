@@ -1,6 +1,9 @@
 # webrtc
 learn webrtc
 
+# enviorment
+* go env, and edit html and js, nothing else
+
 # How to do
 
 * build websocket/server.go and start it; default signal server is localhost:8888
