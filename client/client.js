@@ -50,6 +50,9 @@ var callPage = document.querySelector('#call-page');
 var theirUsernameInput = document.querySelector('#their-username');
 var callButton = document.querySelector('#call');
 var hangButton = document.querySelector('#hang-up');
+var sendButton = document.querySelector("#send");
+var messageInput  = document.querySelector("#message");
+var received = document.querySelector("#received");
 
 callPage.style.display = "none";
 loginButton.addEventListener("click", function (event) {
@@ -116,6 +119,7 @@ function setupPeerConnection(stream) {
         //"iceServers": [{"urls": "stun:127.0.0.1:9876"}]
     };
     yourConnection = new webkitRTCPeerConnection(configuration);
+    openDataChannel();
     // 设置流的监听
     yourConnection.addStream(stream);
     yourConnection.onaddstream = function (ev) {
@@ -214,3 +218,35 @@ function onLeave() {
     yourConnection.onaddstream = null;
     setupPeerConnection(stream);
 }
+
+function openDataChannel() {
+    var dataChannelOptions = {
+        reliable: true,
+        negotiated: true,
+        id: 0
+    };
+    dataChannel = yourConnection.createDataChannel("chat", dataChannelOptions);
+    dataChannel.onerror = function (error) {
+        console.log("data channel error", error)
+    };
+    dataChannel.onmessage = function (event) {
+        console.log("got data channel message", event.data);
+        received.innerHTML += "recv " + event.data + "<br />";
+        received.scrollTop = received.scrollHeight;
+    };
+    dataChannel.onopen = function () {
+        dataChannel.send(name + " has connected")
+    };
+    dataChannel.onclose = function () {
+        console.log("the data channel is closed")
+    }
+}
+
+sendButton.addEventListener("click", function (event) {
+    var val = messageInput.value;
+    received.innerHTML += "send: " + val + "<br />";
+    received.scrollTop = received.scrollHeight;
+    dataChannel.send(val);
+});
+
+
